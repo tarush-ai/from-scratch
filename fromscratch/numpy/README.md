@@ -25,5 +25,5 @@ I'm also going to put some training code in here that can actually be leveraged 
 Building in NumPy has given me a strong understanding of gradient flows and the reason for architectural optimizations compared to beforehand. 
 It forces me to run manual backpropogation, which involves me using a whiteboard and/or watching some videos to build intuition. 
 Many of this code (in the first checked in version) is from AureliusGPT, and honestly, I think I was moving a bit too fast to fully build intuition.
-As I rederive all of these classes and components, I will likely either check in the whiteboarding on GitHub using GHCR or put together a blog post visible on tarush.ai. 
+As I rederive all of these classes and components, I will likely either check in the whiteboarding on GitHub using Git LFS or put together a blog post visible on tarush.ai. 
 I don't know if this will help anyone, but I hope my learning journey is useful in some way. 
