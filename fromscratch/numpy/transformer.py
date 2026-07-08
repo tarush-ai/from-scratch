@@ -6,13 +6,13 @@ from ffn import FFN
 from functional import Util 
 from config import RegularConfig
 
-class PreNormTransformer:
+class PostNormTransformer:
     def __init__(self, tokenizer):
         self.relpath = os.path.join(self.config.PROJECT_ROOT, "data", "weights")
         self.tokenizer = tokenizer
         self.util = Util()
         self.config = RegularConfig()
-        self.blocks = [PreNormTransformerBlock(num, self.relpath) for num in range(self.config.num_blocks)]
+        self.blocks = [PreNormTransformerBlock(num, self.relpath) for num in range(self.config.num_tblocks)]
         self.Wo_path = os.path.join(self.relpath, "Wo.npy")
         self.actual_vocab_size = len(tokenizer.vocab)
         self.lr = self.config.lr

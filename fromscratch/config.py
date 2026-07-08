@@ -5,14 +5,19 @@ class RegularConfig:
       self.d_model = 128
       self.h = 4
       self.lr = 0.001
-      self.num_blocks = 3
+      self.num_layers = 2
+      self.num_tblocks = 3
       self.project_root = os.path.dirname(os.path.abspath(__file__))
+      self.PROJECT_ROOT = self.project_root
       self.min_freq = 30
       self.n = 10000
       self.epsilon = 10**-8
       self.max_tokens_inference = 50
       self.temperature = 1.5
       self.vocab_length = 1000
+      self.activation_function = "relu"
+      self.attention_type = "MultiHeadAttention"
+      self.norm_method = "LayerNorm"
 
    @property
    def d_k(self):

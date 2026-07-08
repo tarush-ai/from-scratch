@@ -15,7 +15,7 @@ from_scratch
       |-- optimizers.py:     Currently blank; future implementation of optimizers like Adam / Muon and more to come
       |-- README.md:         This document! 
       |-- tokenizer.py:      Implementation of manual BPE tokenizer; more tokenization approaches/optimizations to come
-      |-- transformer.py:    Putting it all together. Implementation of Attention is All You Need PreNorm transformer, many more varieties to come
+      |-- transformer.py:    Putting it all together. Implementation of Attention is All You Need PostNorm transformer, many more varieties to come
    ...
    |--config.py:             Regular configuration used for AureliusGPT; slightly mismatched with some of the files but more updates/configurations to come
 ```

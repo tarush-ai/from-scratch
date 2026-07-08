@@ -2,6 +2,7 @@ from collections import Counter
 import numpy as np
 import re, json, os
 from config import RegularConfig
+from embeddings import Embeddings
 
 class Tokenizer:
     def __init__(self, corpus):
@@ -9,6 +10,7 @@ class Tokenizer:
         self.config = RegularConfig()
         self.protected_tokens = self.corpus.protected_tokens
         self.vocabulary_path = os.path.join(self.config.PROJECT_ROOT, "data", "vocabulary.npz")
+        self.embed = Embeddings()
 
         if os.path.exists(self.vocabulary_path):
             with np.load(self.vocabulary_path) as vocabulary:
@@ -39,6 +41,7 @@ class Tokenizer:
         self.vocab.append("<BEGIN>")
         self.vocab.append("<END>")
         self.vocab.append("<PAD>")
+        self.vocab.append("<UNK>")
         
         self.rules = []
 
@@ -93,7 +96,7 @@ class Tokenizer:
             np.savez(self.vocabulary_path, vocab=self.vocab, rules=self.rules, id_to_token=self.id_to_token, token_to_id=self.token_to_id)
 
     def tokenize(self, input_str):
-        tokens = self.characterize(input_str, self.protected_tokens)
+        tokens = self.characterize(input_str)
 
         #I will allow this to throw an exception manually, meaning it is out of sequence
         

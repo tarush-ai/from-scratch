@@ -7,7 +7,7 @@ class Attention:
     def __init__(self, path):
         self.config = RegularConfig()
         current_module = sys.modules[__name__]
-        self.attnclass = getattr(current_module, self.config.attention_type, None)
+        self.attnclass = getattr(current_module, self.config.attention_type, None)(path)
 
     def forward(self, X):
         return self.attnclass.forward(X)
@@ -15,11 +15,13 @@ class Attention:
     def backward(self, dL_dattn):
         return self.attnclass.backward(dL_dattn)
 
-
 class AttentionClass:
     def __init__(self, path):
         self.relpath = os.path.join(path, "attention")
         os.makedirs(self.relpath, exist_ok=True)
+
+        self.config = RegularConfig()
+        self.util = Util()
 
         self.Wq_path = os.path.join(self.relpath, "Wq.npy")
         self.Wk_path = os.path.join(self.relpath, "Wk.npy")
@@ -135,7 +137,7 @@ class MultiHeadAttention(AttentionClass):
         np.save(self.Wv_path, self.Wv)
         np.save(self.Wo_path, self.Wo)
 
-class AttentionHead(AttentionClass):
+class AttentionHead():
     def __init__(self):    
         self.util = Util()
         self.config = RegularConfig()
@@ -180,9 +182,10 @@ class SingleHeadAttention(AttentionClass):
         V = X @ self.Wv
         
         scores = Q @ K.T
-        scores_norm /= np.sqrt(self.config.d_k)
+        scores /= np.sqrt(self.config.d_k)
+        scores_norm = scores
         scores_norm += self.util.mask(len(scores), len(scores[0]))
-        scores_soft = self.util.softmax(scores_norm)
+        scores_soft = self.util.softmax(scores_norm, axis=-1) #I think?
         output = scores_soft @ V
         
         return output

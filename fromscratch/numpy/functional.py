@@ -4,8 +4,8 @@ from config import RegularConfig
 class Util:
     def __init__(self):
         self.config = RegularConfig()
-        self.activ = getattr(self, self.config.activation_function, self.default_fallback)
-        self.activ_deriv = getattr(self, self.config.activation_function + 'prime', self.default_fallback)
+        self.activ = getattr(self, self.config.activation_function, None)
+        self.activ_deriv = getattr(self, self.config.activation_function + 'prime', None)
 
     def softmax(self, n, axis):
         max_val = np.max(n, axis, keepdims=True)

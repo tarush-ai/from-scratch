@@ -26,6 +26,7 @@ class Linear:
     def __init__(self, path, layer_num, activ):
         self.relpath = os.path.join(path, f"ffn/{layer_num}")
         os.makedirs(self.relpath, exist_ok=True)
+        self.config = RegularConfig()
 
         self.activ = activ
         self.util = Util()
@@ -41,15 +42,15 @@ class Linear:
             self.b = np.load(self.bpath)
         else:
             self.b = np.random.normal(0, 0.02, (self.config.d_ff,))
-            np.save(self.b1path, self.b)
+            np.save(self.bpath, self.b)
     
     def forward(self, X):
         self.X = X
-        h = X @ self.W + self.b
+        self.h = X @ self.W + self.b
         if self.activ:
-            output = self.util.relu(h)
+            output = self.util.relu(self.h)
         else: 
-            output = h
+            output = self.h
         return output
 
     def backward(self, dL_dh):
@@ -66,7 +67,5 @@ class Linear:
         return dL_dh2
     
     def save_weights(self):
-        np.save(self.W1path, self.W1)
-        np.save(self.b1path, self.b1)
-        np.save(self.W2path, self.W2)
-        np.save(self.b2path, self.b2)
+        np.save(self.Wpath, self.W)
+        np.save(self.bpath, self.b)

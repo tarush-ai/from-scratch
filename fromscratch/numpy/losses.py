@@ -1,6 +1,10 @@
 import numpy as np
+from functional import Util
 
 class CrossEntropy:
+   def __init__(self):
+      self.util = Util()
+
    def ce_loss(self, targets, logits):
          logits_max = np.max(logits, axis=-1, keepdims=True)
          logits_shifted = logits - logits_max

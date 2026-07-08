@@ -4,8 +4,9 @@ from config import RegularConfig
 
 class Normalization:
     def __init__(self, num, path):
+        self.config = RegularConfig()
         self.local_module = sys.modules[__name__]
-        self.norm = getattr(self.local_module, self.config.norm_method, None)
+        self.norm = getattr(self.local_module, self.config.norm_method, None)(num, path)
     
     def forward(self, pred, X):
         return self.norm.forward(pred, X)
@@ -19,6 +20,9 @@ class LayerNorm:
         numpath = "norm" + str(num)
         self.relpath = os.path.join(path, numpath)
         os.makedirs(self.relpath, exist_ok=True)
+        
+        self.config = RegularConfig()
+        
         self.gamma_path = os.path.join(self.relpath, "gamma.npy")
         self.beta_path = os.path.join(self.relpath, "beta.npy")
 
