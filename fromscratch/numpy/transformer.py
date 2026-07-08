@@ -6,7 +6,7 @@ from ffn import FFN
 from functional import Util 
 from config import RegularConfig
 
-class OldFaithfulPreNormTransformer:
+class PreNormTransformer:
     def __init__(self, tokenizer):
         self.relpath = os.path.join(self.config.PROJECT_ROOT, "data", "weights")
         self.tokenizer = tokenizer

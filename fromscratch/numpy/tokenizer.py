@@ -17,11 +17,7 @@ class Tokenizer:
                 self.id_to_token = vocabulary["id_to_token"]
                 self.token_to_id = vocabulary["token_to_id"]
             pass
-        
-        self.bpe_train()
-        np.savez(self.vocabulary_path, vocab=self.vocab, rules=self.rules, id_to_token=self.id_to_token, token_to_id=self.token_to_id)
-
-            
+    
     def words(self, text):
         newline = r"\n"        
         punctuation = r"([.,;:!?\"])"
@@ -94,6 +90,7 @@ class Tokenizer:
             characters = characters2
 
             if rule: self.rules.append((rule[0])) 
+            np.savez(self.vocabulary_path, vocab=self.vocab, rules=self.rules, id_to_token=self.id_to_token, token_to_id=self.token_to_id)
 
     def tokenize(self, input_str):
         tokens = self.characterize(input_str, self.protected_tokens)
