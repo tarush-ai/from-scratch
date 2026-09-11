@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
 import os, sys
-from config import RegularConfigTorch
+from config import RegularConfig
 
 class FFNClass(nn.Module):
    def __init__(self):
       super().__init__()
       self.module = sys.modules[__name__]
-      self.config = RegularConfigTorch()
+      self.config = RegularConfig()
       self.ffn = getattr(self.module, self.config.ffn_type, None)()
    
    def forward(self, X):
@@ -16,7 +16,7 @@ class FFNClass(nn.Module):
 class RegularFFN(nn.Module):
    def __init__(self):
       super().__init__()
-      self.config = RegularConfigTorch()
+      self.config = RegularConfig()
       self.layers = nn.ModuleList([Layer() for i in range(self.config.num_layers-1)])
       self.layers.append(Layer(False))
    

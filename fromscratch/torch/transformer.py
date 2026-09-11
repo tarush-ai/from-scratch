@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import os, sys
-from config import RegularConfigTorch
+from config import RegularConfig
 from embeddings import EmbeddingTorch
 from attention import AttentionClass
 from ffn import FFNClass
@@ -11,7 +11,7 @@ class Transformer(nn.Module):
    def __init__(self, tokenizer):
       super().__init__()
       self.tokenizer = tokenizer
-      self.config = RegularConfigTorch()
+      self.config = RegularConfig()
       self.module = sys.modules[__name__]
       self.transformer = getattr(self.module, self.config.transformer_type, None)(self.tokenizer)
    
@@ -23,7 +23,7 @@ class PreNormTransformer(nn.Module):
       super().__init__()
       self.tokenizer = tokenizer
       self.embedding = EmbeddingTorch(self.tokenizer)
-      self.config = RegularConfigTorch()
+      self.config = RegularConfig()
       self.transformerblocks = nn.ModuleList([PreNormTransformerBlock() for block in self.config.num_blocks])
    
    def forward(self, X):
@@ -81,7 +81,7 @@ class PostNormTransformer(nn.Module): #looks the same as PreNormTransformer with
       super().__init__()
       self.tokenizer = tokenizer
       self.embedding = EmbeddingTorch(self.tokenizer)
-      self.config = RegularConfigTorch()
+      self.config = RegularConfig()
       self.transformerblocks = nn.ModuleList([PostNormTransformerBlock() for block in self.config.num_blocks])
    
    def forward(self, X):

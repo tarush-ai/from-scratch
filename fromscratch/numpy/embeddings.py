@@ -1,12 +1,23 @@
 import numpy as np
 from config import RegularConfig
+import os
 
 class Embeddings:
-   def __init__(self):
+   def __init__(self, path):
+      self.relpath = os.path.join(path, "attention")
+      os.makedirs(self.relpath, exist_ok=True)
+      
       self.config = RegularConfig()
-   
-   def embed(self, encoded, E):
-        X = np.array([E[i] for i in encoded])
+      self.E_path = os.path.join(self.relpath, "embeddings")
+
+      if os.path.exists(self.E_path):
+         self.E = np.load(self.E_path)
+      else:
+         self.E = np.random.normal(0,0.02,(self.config.vocab_length, self.config.d_model))   
+      
+      
+   def embed(self, encoded):
+        X = np.array([self.E[i] for i in encoded])
         return X
 
    def positional(self, encoded):

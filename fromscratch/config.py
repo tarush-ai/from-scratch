@@ -2,13 +2,20 @@ import os
 
 class RegularConfig:
    def __init__(self):  
+      #architectural decisions
+      self.transformer_type = "PreNormTransformerEndNorm"
+      self.attention_type = "MultiHeadAttention"
+      self.ffn_type = "RegularFFN"
+      self.norm_method = "LayerNorm"
+
+      #dimensions
       self.d_model = 128
       self.h = 4
+
+      # hyperparameters
       self.lr = 0.001
       self.num_layers = 2
       self.num_tblocks = 3
-      self.project_root = os.path.dirname(os.path.abspath(__file__))
-      self.PROJECT_ROOT = self.project_root
       self.min_freq = 30
       self.n = 10000
       self.epsilon = 10**-8
@@ -16,8 +23,12 @@ class RegularConfig:
       self.temperature = 1.5
       self.vocab_length = 1000
       self.activation_function = "relu"
-      self.attention_type = "MultiHeadAttention"
-      self.norm_method = "LayerNorm"
+
+      #weight reading
+      self.project_root = os.path.dirname(os.path.abspath(__file__))
+      self.PROJECT_ROOT = self.project_root
+      
+      
 
    @property
    def d_k(self):
@@ -37,5 +48,16 @@ class RegularConfig:
 
    @property 
    def d_head(self):
-      return self.d_k
-
+      return self.d_model // self.h
+   
+   @property
+   def num_heads(self):
+      return self.h
+   
+   @property
+   def num_blocks(self):
+      return self.num_tblocks
+   
+   @property 
+   def vocab_size(self):
+      return self.vocab_length

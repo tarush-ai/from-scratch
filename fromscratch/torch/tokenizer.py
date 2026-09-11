@@ -1,11 +1,11 @@
 import sentencepiece as spm
 import sys, os
-from config import RegularConfigTorch
+from config import RegularConfig
 
 class Tokenizer:
     def __init__(self):
         self.sp = spm.SentencePieceProcessor()
-        self.config = RegularConfigTorch()
+        self.config = RegularConfig()
     
     def train(self, all_sentences, model_prefix=None):
         if model_prefix is None:
