@@ -50,8 +50,7 @@ class OptimizedMHATrain(nn.Module):
    def save_weights(self):
       # nuclear: detaches from autograd, please only use when you want to save weights, not for intermediate weight caching. 
       attn_path = os.path.join(self.c.weights_base_path, f"{self.lnum}/attn/")
-      if not os.path.exists(attn_path):
-         os.makedirs(attn_path)
+      os.makedirs(attn_path, exist_ok=True)
       torch.save(self.Wqkv.weight.T.detach().contiguous(), os.path.join(attn_path, "Wqkv.pt"))
       torch.save(self.Wo.weight.T.detach().contiguous(), os.path.join(attn_path, "Wo.pt"))
 
@@ -86,8 +85,7 @@ class StandardMHATrain(nn.Module):
    def save_weights(self):
       # nuclear: detaches from autograd, please only use when you want to save weights, not for intermediate weight caching. 
       attn_path = os.path.join(self.c.weights_base_path, f"{self.lnum}/attn/")
-      if not os.path.exists(attn_path):
-         os.makedirs(attn_path)
+      os.makedirs(attn_path, exist_ok=True)
       torch.save(self.Wq.weight.T.detach().contiguous(), os.path.join(attn_path, "Wq.pt")) # Storing as (in, out) instead of (out, in)
       torch.save(self.Wk.weight.T.detach().contiguous(), os.path.join(attn_path, "Wk.pt"))
       torch.save(self.Wv.weight.T.detach().contiguous(), os.path.join(attn_path, "Wv.pt"))
@@ -151,3 +149,70 @@ class MHAInferenceNoKV(nn.Module):
       A = A.transpose(1,2).reshape(self.c.batch_size, seq_len, self.c.d_model) # (B,h,s,d_k) -> (B,s,h,d_k) -> (B,s,d)
       return A @ self.Wo # (B,s,d) @ (d,d) = (B,s,d)
    # Works for both prefill and decoding.
+
+
+# Grouped Query Attention
+# Training
+class GQATrain(nn.Module):
+   def __init__(self, lnum):
+      super().__init__()
+      self.c = RegularConfig()
+      self.lnum = lnum
+      self.h_q, self.d_q = self.c.h_q, self.c.d_model // self.c.h_q
+      self.h_kv = self.c.h_kv
+      self.dim_kv = self.d_q * self.h_kv
+      self.Wqkv = nn.Linear(self.c.d_model, self.c.d_model + 2*self.dim_kv, bias=False)
+      self.Wo = nn.Linear(self.c.d_model, self.c.d_model, bias=False)
+
+   def forward(self, X, mask=None):
+      B, s, d = tuple(X.shape)
+      rep = self.h_q // self.h_kv
+      Q, K, V = self.Wqkv(X).split([self.c.d_model, self.dim_kv, self.dim_kv], dim=-1) 
+      Q = Q.contiguous().view(B, s, self.h_q, self.d_q).permute(0,2,1,3)
+      K, V = [i.contiguous().view(B,s,self.h_kv, self.d_q).permute(0,2,1,3).repeat_interleave(rep, dim=1) for i in (K,V)]
+      # (B,s,dim_kv) -> (B,s,h_kv,d_q) -> (B,h_kv,s,d_q) -> (B,h_q, s, d_q) # repeated h_q // h_kv times
+      scores = Q @ K.permute(0,1,3,2) # (B,h_q,s,d_q) @ (B,h_q,d_q, s) -> (B,h_q, s,s)
+      scores = (scores / (self.d_q ** 0.5)) + mask
+      A = (scores.softmax(dim=-1) @ V).permute(0,2,1,3).contiguous().view(B,s,d) # (B,h_q,s,s) (B,h_q,s,d_q) -> (B,h_q,s,d_q) 
+      return self.Wo(A)
+
+   def save_weights(self):
+      attnpath = os.path.join(self.c.weights_base_path, f"{self.lnum}/attn")
+      os.makedirs(attnpath, exist_ok=True)
+      torch.save(self.Wqkv.weight.detach().T.contiguous(), os.path.join(attnpath, "Wqkv_gqa.pt"))
+      torch.save(self.Wo.weight.detach().T.contiguous(), os.path.join(attnpath, "Wo_gqa.pt"))
+
+# Inference
+class GQAInferenceKV(nn.Module):
+   def __init__(self, lnum):
+      super().__init__()
+      self.c = RegularConfig()
+      self.h_q, self.d_q = self.c.h_q, self.c.d_model // self.c.h_q
+      self.h_kv = self.c.h_kv
+      self.dim_kv = self.d_q * self.h_kv
+      self.Wqkv = torch.load(os.path.join(self.c.weights_base_path, f"{lnum}/attn/Wqkv_gqa.pt"))
+      self.Wo = torch.load(os.path.join(self.c.weights_base_path, f"{lnum}/attn/Wo_gqa.pt"))
+
+   def forward(self, X, mask=None, KV=None, prevseq=0):
+      B, s, d = tuple(X.shape)
+      Q, K, V = (X @ self.Wqkv).split([self.c.d_model, self.dim_kv, self.dim_kv], dim=-1) 
+      Q = Q.contiguous().view(B, s, self.h_q, self.d_q).permute(0,2,1,3)
+      K, V = [i.contiguous().view(B,s,self.h_kv, self.d_q).permute(0,2,1,3) for i in (K,V)]
+      check = KV is not None
+      currseq = prevseq + s
+      if check: 
+         Kcache, Vcache = KV
+      else:
+         Kcache, Vcache = [torch.zeros(B,self.h_kv,self.c.max_seq_length,self.d_q) for i in range(2)]
+      Kcache[:, :, prevseq:currseq, :] = K
+      Vcache[:, :, prevseq:currseq, :] = V
+      KV = (Kcache, Vcache)
+
+      rep = self.h_q // self.h_kv
+      Kexp = Kcache[:, :, :currseq, :].repeat_interleave(rep, dim=1)
+      Vexp = Vcache[:, :, :currseq, :].repeat_interleave(rep, dim=1)
+      # (B,s,dim_kv) -> (B,s,h_kv,d_q) -> (B,h_kv,s,d_q) -> (B,h_q, s, d_q) # repeated h_q // h_kv times
+      scores = Q @ Kexp.permute(0,1,3,2) # (B,h_q,s,d_q) @ (B,h_q,d_q, s) -> (B,h_q, s,s)
+      scores = (scores / (self.d_q ** 0.5)) + mask[prevseq:currseq, :currseq]
+      A = (scores.softmax(dim=-1) @ Vexp).permute(0,2,1,3).contiguous().view(B,s,d) # (B,h_q,s,s) (B,h_q,s,d_q) -> (B,h_q,s,d_q) 
+      return (A @ self.Wo), KV, currseq
