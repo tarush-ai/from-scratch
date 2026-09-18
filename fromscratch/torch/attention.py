@@ -8,7 +8,7 @@ class AttentionClassTrain(nn.Module):
       super().__init__()
       self.c = RegularConfig()
       self.module = sys.modules[__name__]
-      self.attn = getattr(self.module, self.c.attention_type)(lnum)
+      self.attn = getattr(self.module, self.c.torch_attention_type)(lnum)
 
    def forward(self, X, mask=None):
       return self.attn(X, mask)
@@ -21,7 +21,7 @@ class AttentionClassInference(nn.Module):
          super().__init__()
          self.c = RegularConfig()
          self.module = sys.modules[__name__]
-         self.attn = getattr(self.module, self.c.attention_type)(lnum)
+         self.attn = getattr(self.module, self.c.torch_attention_type)(lnum)
    
    def forward(self, X, mask=None, KV=None, prevlen=0):
       return self.attn(X, mask, KV, prevlen)
@@ -36,6 +36,8 @@ class OptimizedMHATrain(nn.Module):
       self.h, self.d_k = self.c.num_heads, self.c.d_model // self.c.num_heads
       self.Wqkv = nn.Linear(self.c.d_model, 3*self.c.d_model, bias=False)
       self.Wo = nn.Linear(self.c.d_model, self.c.d_model, bias=False)
+      nn.init.normal_(self.Wqkv.weight, mean=0.0, std=0.02)
+      nn.init.normal_(self.Wo.weight, mean=0.0, std=0.02)
 
    def forward(self, X, mask):
       B, s, d = tuple(X.shape)
@@ -61,6 +63,8 @@ class MHATrain(nn.Module):
       self.c = RegularConfig()
       self.Wqkv = nn.Linear(self.c.d_model, 3*self.c.d_model, bias=False)
       self.Wo = nn.Linear(self.c.d_model, self.c.d_model, bias=False)
+      nn.init.normal_(self.Wqkv.weight, mean=0.0, std=0.02)
+      nn.init.normal_(self.Wo.weight, mean=0.0, std=0.02)
       self.lnum = lnum
 
    def forward(self, X, mask=None):
@@ -130,7 +134,7 @@ class MHAInfNoKV(nn.Module):
 # Grouped Query Attention
 # Technically, this can handle MQA based on config
 # Training
-class GQATrainRepeatInterleaving(nn.Module):
+class GQATrain(nn.Module):
    def __init__(self, lnum):
       super().__init__()
       self.c = RegularConfig()
@@ -142,6 +146,8 @@ class GQATrainRepeatInterleaving(nn.Module):
       self.qkvdim = self.c.d_model + 2*self.d_kv
       self.Wqkv = nn.Linear(self.c.d_model, self.qkvdim, bias=False)
       self.Wo = nn.Linear(self.c.d_model, self.c.d_model, bias=False)
+      nn.init.normal_(self.Wqkv.weight, mean=0.0, std=0.02)
+      nn.init.normal_(self.Wo.weight, mean=0.0, std=0.02)
 
    def forward(self, X, mask=None):
       B, s, d = X.shape
@@ -202,41 +208,4 @@ class GQAInferenceKV(nn.Module):
       # (B,h_kv,rel,s,s) @ (B,h_kv,1,s,d_q) -> (B,h_kv,rel,s,d_q) -> (B,s,h_kv,rel,d_q) -> (B,s,d)
       return A @ self.Wo, KV, currseq
 
-      
-
-
-
-'''
-How might a 5D tensor work? Brainstorming.
-
-The problem is h_dk vs h_q. From my understanding, Q is:
-(B,self.h_q,1,s,d_q) after permuting and everything
-Is K and V supposed to be 
-(B,self.h_q,rel,s,d_q)? Is that what it is? I don't understand why though.
-Is it because when we matmul by permute(0,1,2,4,3) for K...
-it becomes (B,self.h_q,rel,s,s)?
-How does reshaping work? I guess I'm super confused...
-Please help me understand it a bit better. Trying my best but kind of guessing. 
-Clearly I get the alg- I think there's struggling with tensor bookkeeping dimensions. 
-The actual matmuls are correct; it's more so tensor manipulation for 5d tensors, where I've worked with 
-max 4d in the past. Can you give me tensor manipulation skills that go up to Nd? do we have to deal with >5D tensors in infra work? 
-:( Idk if I'm doing well or nah
-'''
-
-'''
-Revised note given Claude's teaching:
-Q (B,s,d) -> (B,s,g,m,d_q) where g is h_kv; -> (B,g,m,s,d_q)
-which is here equal to (B,h_kv,rel,s,d_q) where rel is h_q/h_kv
-do the math: h_kv*rel*d_q = h_q*d_q = d_model
-
-K, V (B,s,d_kv) -> (B,s,g,m,d_q) where g is h_kv -> (B,g,1,s,d_q)
-which is here equal to (B,h_kv,1,s,d_q) because h_dk*d_q is d_kv
-
-What I don't get is the MATMUL itself, and the reshape operation.
-
-Q@K.permute(0,1,2,4,3) = (B,h_kv,rel,s,d_q) @ (B,h_kv,rel,d_q,s) -> (B,h_kv,__,s,s)... does the rel multiply through? 
-I think it does right? Does that mean there is a 3d matmul of some kind? Not really sure how multiplying two third order tensors works...
-The reason I think rel carries through is because we need to reshape into size d_model, NOT size d_kv.
-
-Also, how do we KNOW to reshape in that way? Like, those 3 nums could have come out of the final dim, or they could have come out of -2,-1...?
-'''
+   

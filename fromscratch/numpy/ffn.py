@@ -1,7 +1,7 @@
 import numpy as np
 import os
-from functional import Util        
-from config import RegularConfig
+from .functional import Util        
+from ..config import RegularConfig
 
 class FFN:
     def __init__(self, path):

@@ -1,8 +1,8 @@
 from collections import Counter
 import numpy as np
 import re, json, os
-from config import RegularConfig
-from embeddings import Embeddings
+from ..config import RegularConfig
+from .embeddings import Embeddings
 
 class Tokenizer:
     def __init__(self, corpus):

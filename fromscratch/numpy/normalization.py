@@ -1,6 +1,6 @@
 import numpy as np
 import os, sys
-from config import RegularConfig
+from ..config import RegularConfig
 
 class Normalization:
     def __init__(self, num, path):

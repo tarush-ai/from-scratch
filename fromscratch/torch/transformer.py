@@ -1,137 +1,75 @@
 import torch
 import torch.nn as nn
 import os, sys
-from config import RegularConfig
-from embeddings import EmbeddingTorch
-from attention import AttentionClass
-from ffn import FFNClass
-from normalization import NormalizationClass
+from ..config import RegularConfig
+from .attention import AttentionClassTrain
+from .ffn import FFNClassTrain
+from .normalization import NormClass
 
 class Transformer(nn.Module):
    def __init__(self, tokenizer):
       super().__init__()
       self.tokenizer = tokenizer
-      self.config = RegularConfig()
+      self.c = RegularConfig()
       self.module = sys.modules[__name__]
-      self.transformer = getattr(self.module, self.config.transformer_type, None)(self.tokenizer)
+      self.transformer = getattr(self.module, self.c.transformer_type, None)(self.tokenizer)
    
    def forward(self, X):
       return self.transformer(X)
+
+   def save_weights(self):
+      self.transformer.save_weights()
    
-class PreNormTransformer(nn.Module):
+class StandardPreNormTransformer(nn.Module):
    def __init__(self, tokenizer):
       super().__init__()
+      self.c = RegularConfig()
+      mask = torch.triu(torch.full((self.c.max_seq_length, self.c.max_seq_length),float('-inf')),diagonal=1)
+      self.register_buffer("mask", mask, persistent=False)
       self.tokenizer = tokenizer
-      self.embedding = EmbeddingTorch(self.tokenizer)
-      self.config = RegularConfig()
-      self.transformerblocks = nn.ModuleList([PreNormTransformerBlock() for block in self.config.num_blocks])
+      self.embed = nn.Embedding(self.c.vocab_length, self.c.d_model)
+      self.pos = nn.Embedding(self.c.max_seq_len, self.c.d_model)
+      nn.init.normal_(self.embed.weight, mean=0.0, std=0.02)
+      nn.init.normal_(self.pos.weight, mean=0.0, std=0.02)
+      self.transformerblocks = nn.ModuleList([PreNormTransformerBlock(i) for i in range(self.c.num_blocks)])
+      self.final_ln = NormClass(self.c.num_blocks, 1)
    
    def forward(self, X):
-      embedded = self.embedding.embed(X)
-      positional = self.embedding.positional(X)
+      embedded = self.embed(X)
+      positional = self.pos(torch.arange(X.shape[1], device=X.device))
       X = embedded + positional
-      for block in self.trasnformerblocks:
-         X = block(X)
-      return X
+      for block in self.transformerblocks:
+         X = block(X, self.mask)
+      X = self.final_ln(X)
+      return X @ self.embed.weight.T
 
-class PreNormTransformerNoEndNorm(PreNormTransformer, nn.Module):
-   def __init__(self, tokenizer):
-      super().__init__(tokenizer)
-      self.Wo = nn.Linear(self.config.d_model, self.config.vocab_size, bias=False)
-   
-   def forward(self, X):
-      X = PreNormTransformer(X)
-      X = self.Wo(X)
-      return X
+   def save_weights(self):
+      embeddings_path = os.path.join(self.c.weights_base_path, f"embeddings/")
+      os.makedirs(embeddings_path, exist_ok=True)
+      torch.save(self.embed.weight.detach().contiguous(), os.path.join(embeddings_path, "embed.pt"))
+      torch.save(self.pos.weight.detach().contiguous(), os.path.join(embeddings_path, "pos.pt"))
+      for block in self.transformerblocks:
+         block.save_weights()
+      self.final_ln.save_weights()
 
-class PreNormTransformerEndNorm(PreNormTransformer, nn.Module):
-   def __init__(self, tokenizer):
-      super().__init__(tokenizer)
-      self.endnorm = NormalizationClass()
-      self.Wo = nn.Linear(self.config.d_model, self.config.vocab_size, bias=False)
 
-   def forward(self, X):
-      X = PreNormTransformer(X)
-      X = self.endnorm(X)
-      X = self.Wo(X)
-      return X
-   
 class PreNormTransformerBlock(nn.Module):
-   def __init__(self):
+   def __init__(self, lnum):
       super().__init__()
-      self.norm1 = NormalizationClass()
-      self.mha = AttentionClass()
-      self.norm2 = NormalizationClass()
-      self.ffn = FFNClass()
+      self.c = RegularConfig()
+      self.ln1 = NormClass(lnum,1)
+      self.attn = AttentionClassTrain(lnum)
+      self.ln2 = NormClass(lnum,2)
+      self.ffn = FFNClassTrain(lnum)
 
-   def foward(self, X):
-      saver = X
-      X = self.mha(X)
-      X = self.norm1(X)
-      X += saver
-      saver2 = X
-      X = self.ffn(X)
-      X = self.norm2(X)
-      X += saver2
-      return X
-      # X2 = X + LN(MHA(X)); return X=X2 + LN2(FFN(X2))
-
-class PostNormTransformer(nn.Module): #looks the same as PreNormTransformer with one tweak
-   def __init__(self, tokenizer):
-      super().__init__()
-      self.tokenizer = tokenizer
-      self.embedding = EmbeddingTorch(self.tokenizer)
-      self.config = RegularConfig()
-      self.transformerblocks = nn.ModuleList([PostNormTransformerBlock() for block in self.config.num_blocks])
-   
-   def forward(self, X):
-      embedded = self.embedding.embed(X)
-      positional = self.embedding.positional(X)
-      X = embedded + positional
-      for block in self.trasnformerblocks:
-         X = block(X)
+   def forward(self, X, mask):
+      X = X + self.attn(self.ln1(X), mask)
+      X = X + self.ffn(self.ln2(X))
       return X
 
-class PostNormTransformerNoEndNorm(PostNormTransformer, nn.Module):
-   def __init__(self, tokenizer):
-      super().__init__(tokenizer)
-      self.Wo = nn.Linear(self.config.d_model, self.config.vocab_size, bias=False)
-   
-   def forward(self, X):
-      X = PreNormTransformer(X)
-      X = self.Wo(X)
-      return X
-
-class PostNormTransformerEndNorm(PostNormTransformer, nn.Module):
-   def __init__(self, tokenizer):
-      super().__init__(tokenizer)
-      self.endnorm = NormalizationClass()
-      self.Wo = nn.Linear(self.config.d_model, self.config.vocab_size, bias=False)
-
-   def forward(self, X):
-      X = PreNormTransformer(X)
-      X = self.endnorm(X)
-      X = self.Wo(X)
-      return X
-   
-class PostNormTransformerBlock(nn.Module):
-   def __init__(self):
-      super().__init__()
-      self.norm1 = NormalizationClass()
-      self.mha = AttentionClass()
-      self.norm2 = NormalizationClass()
-      self.ffn = FFNClass()
-
-   def foward(self, X):
-      saver = X
-      X = self.mha(X)
-      X += saver
-      X = self.norm1(X)
+   def save_weights(self):
+      self.ln1.save_weights()
+      self.attn.save_weights()
+      self.ln2.save_weights()
+      self.ffn.save_weights()
       
-      saver2 = X
-      X = self.ffn(X)
-      X += saver2
-      X = self.norm2(X)
-
-      return X
-      # X2 = LN(X+MHA(X)); return X=LN2(X2+FFN(X2))

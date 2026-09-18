@@ -1,5 +1,5 @@
 import numpy as np
-from functional import Util
+from .functional import Util
 
 class CrossEntropy:
    def __init__(self):

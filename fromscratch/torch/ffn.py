@@ -3,7 +3,7 @@ import torch.nn as nn
 import os, sys
 from ..config import RegularConfig
 
-class FFNClass(nn.Module):
+class FFNClassTrain(nn.Module):
    def __init__(self, lnum):
       super().__init__()
       self.module = sys.modules[__name__]
@@ -16,6 +16,16 @@ class FFNClass(nn.Module):
    def save_weights(self):
       self.ffn.save_weights()
 
+class FFNClassTest(nn.Module):
+   def __init__(self, lnum):
+         super().__init__()
+         self.module = sys.modules[__name__]
+         self.c = RegularConfig()
+         self.ffn = getattr(self.module, self.c.ffn_type)(lnum)
+      
+   def forward(self, X):
+      return self.ffn(X)
+   
 # Training 
 class RegularFFN(nn.Module):
    def __init__(self, lnum):
@@ -25,6 +35,8 @@ class RegularFFN(nn.Module):
       self.upproj = nn.Linear(self.c.d_model, self.c.d_ff, bias=False)
       self.activ = nn.ReLU()
       self.downproj = nn.Linear(self.c.d_ff, self.c.d_model, bias=False)
+      nn.init.normal_(self.upproj.weight, mean=0.0, std=0.02)
+      nn.init.normal_(self.downproj.weight, mean=0.0, std=0.02)
 
    def forward(self, X):
       X = self.upproj(X)
@@ -40,8 +52,6 @@ class RegularFFN(nn.Module):
       torch.save(self.upproj.weight.T.detach().contiguous(), os.path.join(ffn_path, "upproj.pt"))
       torch.save(self.downproj.weight.T.detach().contiguous(), os.path.join(ffn_path, "downproj.pt"))
 
-
-
 class FFNInference(nn.Module):
    def __init__(self, lnum):
       super().__init__()
@@ -56,6 +66,4 @@ class FFNInference(nn.Module):
       X = self.activ(X)
       X = X @ self.downproj_weights # (B,s,d_ff) @ (d_ff, d)
       return X
-
-   def save_weights(self):
-      pass
+      

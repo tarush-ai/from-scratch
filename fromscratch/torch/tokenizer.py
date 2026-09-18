@@ -1,6 +1,6 @@
 import sentencepiece as spm
 import sys, os
-from config import RegularConfig
+from ..config import RegularConfig
 
 class Tokenizer:
     def __init__(self):

@@ -1,6 +1,6 @@
 import numpy as np
-from config import RegularConfig
-from functional import Util
+from ..config import RegularConfig
+from .functional import Util
 import os, sys
 
 class Attention:

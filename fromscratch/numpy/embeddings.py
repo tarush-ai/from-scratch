@@ -1,5 +1,5 @@
 import numpy as np
-from config import RegularConfig
+from ..config import RegularConfig
 import os
 
 class Embeddings:

@@ -1,10 +1,10 @@
 import numpy as np
 import os
-from attention import Attention
-from normalization import Normalization
-from ffn import FFN
-from functional import Util 
-from config import RegularConfig
+from .attention import Attention
+from .normalization import Normalization
+from .ffn import FFN
+from .functional import Util 
+from ..config import RegularConfig
 
 class PostNormTransformer:
     def __init__(self, tokenizer):

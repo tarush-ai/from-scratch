@@ -1,5 +1,5 @@
 import numpy as np
-from config import RegularConfig
+from ..config import RegularConfig
 
 class Util:
     def __init__(self):

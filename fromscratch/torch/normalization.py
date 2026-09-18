@@ -4,11 +4,11 @@ from ..config import RegularConfig
 import sys, os
 
 class NormClass(nn.Module):
-   def __init__(self, lnum):
+   def __init__(self, lnum, numnorm):
          super().__init__()
          self.c = RegularConfig()
          self.module = sys.modules[__name__]
-         self.norm = getattr(self.module, self.c.norm_type)(lnum)
+         self.norm = getattr(self.module, self.c.norm_type)(lnum,numnorm)
    
    def forward(self, X):
       return self.norm(X)
@@ -18,9 +18,9 @@ class NormClass(nn.Module):
 
 
 class LayerNorm(nn.Module):
-   def __init__(self, lnum):
+   def __init__(self, lnum,numnorm):
       super().__init__()
-      self.lnum = lnum
+      self.lnum, self.numnorm = lnum, numnorm
       self.c = RegularConfig()
       self.gamma = nn.Parameter(torch.ones(self.c.d_model))
       self.beta = nn.Parameter(torch.zeros(self.c.d_model))
@@ -33,7 +33,7 @@ class LayerNorm(nn.Module):
       return X
 
    def save_weights(self):
-      ln_path = os.path.join(self.c.weights_base_path, f"{self.lnum}/layernorm/")
+      ln_path = os.path.join(self.c.weights_base_path, f"{self.lnum}/layernorm/{self.numnorm}")
       if not os.path.exists(ln_path):
          os.makedirs(ln_path)
       torch.save(self.gamma.detach(), os.path.join(ln_path, "gamma.pt"))
@@ -41,9 +41,9 @@ class LayerNorm(nn.Module):
 
 
 class RMSNorm(nn.Module):
-   def __init__(self, lnum):
+   def __init__(self, lnum, numnorm):
       super().__init__()
-      self.lnum = lnum
+      self.lnum, self.numnorm = lnum, numnorm
       self.c = RegularConfig()
       self.gamma = nn.Parameter(torch.ones(self.c.d_model))
 
@@ -54,7 +54,7 @@ class RMSNorm(nn.Module):
       return X
 
    def save_weights(self):
-      ln_path = os.path.join(self.c.weights_base_path, f"{self.lnum}/rmsnorm/")
+      ln_path = os.path.join(self.c.weights_base_path, f"{self.lnum}/rmsnorm/{self.numnorm}")
       if not os.path.exists(ln_path):
          os.makedirs(ln_path)
       torch.save(self.gamma.detach(), os.path.join(ln_path, "gamma.pt"))
